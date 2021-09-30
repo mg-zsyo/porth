@@ -592,24 +592,24 @@ def type_check_program(program: Program):
             #     assert False, "not implemented"
             # else:
             #     assert False, "unreachable"
-        elif op.typ == OpType.IF:
-            assert False, "not implemented"
-        elif op.typ == OpType.END:
-            assert False, "not implemented"
-        elif op.typ == OpType.ELSE:
-            assert False, "not implemented"
-        elif op.typ == OpType.WHILE:
-            pass
-        elif op.typ == OpType.DO:
-            if len(stack) < 1:
-                print("%s:%d:%d: ERROR: not enough arguments for DO operation" % op.loc, file=sys.stderr)
-                exit(1)
-            a_type, a_loc = stack.pop()
-            if a_type != DataType.BOOL:
-                print("%s:%d:%d: ERROR: DO operation expects BOOL argument" % op.loc, file=sys.stderr)
-                exit(1)
-        else:
-            assert False, "unreachable"
+        # elif op.typ == OpType.IF:
+        #     assert False, "not implemented"
+        # elif op.typ == OpType.END:
+        #     assert False, "not implemented"
+        # elif op.typ == OpType.ELSE:
+        #     assert False, "not implemented"
+        # elif op.typ == OpType.WHILE:
+        #     pass
+        # elif op.typ == OpType.DO:
+        #     if len(stack) < 1:
+        #         print("%s:%d:%d: ERROR: not enough arguments for DO operation" % op.loc, file=sys.stderr)
+        #         exit(1)
+        #     a_type, a_loc = stack.pop()
+        #     if a_type != DataType.BOOL:
+        #         print("%s:%d:%d: ERROR: DO operation expects BOOL argument" % op.loc, file=sys.stderr)
+        #         exit(1)
+        # else:
+        #     assert False, "unreachable"
     # if len(stack) != 0:
     #     print("%s:%d:%d: ERROR: unhandled data on the stack" % stack.pop()[1], file=sys.stderr)
     #     exit(1)
@@ -1278,6 +1278,7 @@ def usage(compiler_name: str):
     print("    -I <path>             Add the path to the include search list")
     print("    -E <expansion-limit>  Macro and include expansion limit. (Default %d)" % DEFAULT_EXPANSION_LIMIT)
     print("    -check                Type check the program")
+    print("    -verbose              Verbose mode")
     print("  SUBCOMMAND:")
     print("    sim <file>            Simulate the program")
     print("    com [OPTIONS] <file>  Compile the program")
