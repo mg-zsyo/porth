@@ -185,7 +185,7 @@ def simulate_little_endian_linux(program: Program, argv: List[str]):
             else:
                 ip += 1
         elif op.typ == OpType.INTRINSIC:
-            assert len(Intrinsic) == 33, "Exhaustive handling of intrinsic in simulate_little_endian_linux()"
+            assert len(Intrinsic) == 35, "Exhaustive handling of intrinsic in simulate_little_endian_linux()"
             if op.operand == Intrinsic.PLUS:
                 a = stack.pop()
                 b = stack.pop()
@@ -385,15 +385,74 @@ def simulate_little_endian_linux(program: Program, argv: List[str]):
         print("[INFO] Memory dump")
         print(mem[:20])
 
+
+assert len(Intrinsic) == 35, "Exhaustive INTRINSIC_ARITY definition"
+INTRINSIC_ARITY = {
+    Intrinsic.PLUS:    (2, 1),
+    Intrinsic.MINUS:   (2, 1),
+    Intrinsic.MUL:     (2, 1),
+    Intrinsic.DIVMOD:  (2, 2),
+    Intrinsic.PRINT:   (1, 0),
+    Intrinsic.EQ:      (2, 1),
+    Intrinsic.GT:      (2, 1),
+    Intrinsic.LT:      (2, 1),
+    Intrinsic.GE:      (2, 1),
+    Intrinsic.LE:      (2, 1),
+    Intrinsic.NE:      (2, 1),
+    Intrinsic.SHR:     (2, 1),
+    Intrinsic.SHL:     (2, 1),
+    Intrinsic.BOR:     (2, 1),
+    Intrinsic.BAND:    (2, 1),
+    Intrinsic.DUP:     (1, 2),
+    Intrinsic.SWAP:    (2, 2),
+    Intrinsic.DROP:    (1, 0),
+    Intrinsic.OVER:    (2, 3),
+    Intrinsic.ROLL:    (2, 1),
+    Intrinsic.PICK:    (2, 2),
+    Intrinsic.MEM:     (0, 1),
+    Intrinsic.STORE:   (1, 0),
+    Intrinsic.LOAD:    (1, 1),
+    Intrinsic.STORE64: (1, 0),
+    Intrinsic.LOAD64:  (1, 1),
+    Intrinsic.ARGC:    (0, 1),
+    Intrinsic.ARGV:    (0, 1),
+    Intrinsic.SYSCALL0:(0, 0),
+    Intrinsic.SYSCALL1:(1, 0),
+    Intrinsic.SYSCALL2:(2, 0),
+    Intrinsic.SYSCALL3:(3, 0),
+    Intrinsic.SYSCALL4:(4, 0),
+    Intrinsic.SYSCALL5:(5, 0),
+    Intrinsic.SYSCALL6:(6, 0),
+}
+
+assert len(OpType) == 8, "Exhaustive OP_ARITY definition"
+OP_ARITY = {
+    OpType.PUSH_INT:  (0, 1),
+    OpType.PUSH_STR:  (0, 1),
+    OpType.IF:        (1, 0),
+    OpType.END:       (0, 0),
+    OpType.ELSE:      (0, 0),
+    OpType.WHILE:     (0, 0),
+    OpType.DO:        (1, 0),
+    OpType.INTRINSIC: (0, 0),
+}
+
 class DataType(IntEnum):
     INT=auto()
     BOOL=auto()
     PTR=auto()
 
 def type_check_program(program: Program):
+    depth = 0;
     stack: List[Tuple[DataType, Loc]] = []
     for ip in range(len(program)):
         op = program[ip]
+        taketh, giveth = OP_ARITY[op.typ];
+        if taketh > depth:
+            # TODO: use human readable representation of intrinsics in error reporting
+            print("%s:%d:%d: ERROR: not enough arguments for the operation" % op.loc, file=sys.stderr)
+            exit(1)
+        depth = depth - taketh + giveth;
         assert len(OpType) == 8, "Exhaustive ops handling in type_check_program()"
         if op.typ == OpType.PUSH_INT:
             stack.append((DataType.INT, op.loc))
@@ -401,141 +460,138 @@ def type_check_program(program: Program):
             stack.append((DataType.INT, op.loc))
             stack.append((DataType.PTR, op.loc))
         elif op.typ == OpType.INTRINSIC:
-            assert len(Intrinsic) == 33, "Exhaustive intrinsic handling in type_check_program()"
-            if op.operand == Intrinsic.PLUS:
-                assert len(DataType) == 3, "Exhaustive type handling in PLUS intrinsic"
-                if len(stack) < 2:
-                    # TODO: use human readable representation of intrinsics in error reporting
-                    print("%s:%d:%d: ERROR: not enough arguments for the PLUS intrinsic" % op.loc, file=sys.stderr)
-                    exit(1)
-                a_type, a_loc = stack.pop()
-                b_type, b_loc = stack.pop()
-
-                if a_type == DataType.INT and b_type == DataType.INT:
-                    stack.append((DataType.INT, op.loc))
-                elif a_type == DataType.INT and b_type == DataType.PTR:
-                    stack.append((DataType.PTR, op.loc))
-                elif a_type == DataType.PTR and b_type == DataType.INT:
-                    stack.append((DataType.PTR, op.loc))
-                else:
-                    print("%s:%d:%d: ERROR: invalid argument types for PLUS intrinsic %s %s" % (op.loc + (a_type, b_type)), file=sys.stderr)
-                    exit(1)
-            elif op.operand == Intrinsic.MINUS:
-                assert False, "not implemented"
-            elif op.operand == Intrinsic.MUL:
-                assert False, "not implemented"
-            elif op.operand == Intrinsic.DIVMOD:
-                assert False, "not implemented"
-            elif op.operand == Intrinsic.EQ:
-                assert False, "not implemented"
-            elif op.operand == Intrinsic.GT:
-                if len(stack) < 2:
-                    print("%s:%d:%d: ERROR: not enough arguments for the GT intrinsic" % op.loc, file=sys.stderr)
-                    exit(1)
-                # b a
-                a_type, a_loc = stack.pop()
-                b_type, b_loc = stack.pop()
-
-                if a_type == b_type and (a_type == DataType.INT or a_type == DataType.PTR):
-                    stack.append((DataType.BOOL, op.loc))
-                else:
-                    print("%s:%d:%d: ERROR: invalid argument type for GT intrinsic" % op.loc, file=sys.stderr)
-                    exit(1)
-            elif op.operand == Intrinsic.LT:
-                assert False, "not implemented"
-            elif op.operand == Intrinsic.GE:
-                assert False, "not implemented"
-            elif op.operand == Intrinsic.LE:
-                assert False, "not implemented"
-            elif op.operand == Intrinsic.NE:
-                assert False, "not implemented"
-            elif op.operand == Intrinsic.SHR:
-                assert False, "not implemented"
-            elif op.operand == Intrinsic.SHL:
-                assert False, "not implemented"
-            elif op.operand == Intrinsic.BOR:
-                assert False, "not implemented"
-            elif op.operand == Intrinsic.BAND:
-                assert False, "not implemented"
-            elif op.operand == Intrinsic.PRINT:
-                if len(stack) < 1:
-                    print("%s:%d:%d: ERROR: not enough arguments for the PRINT intrinsic" % op.loc, file=sys.stderr)
-                    exit(1)
-                stack.pop()
-            elif op.operand == Intrinsic.DUP:
-                if len(stack) < 1:
-                    print("%s:%d:%d: ERROR: not enough arguments for the DUP intrinsic" % op.loc, file=sys.stderr)
-                    exit(1)
-                a = stack.pop()
-                stack.append(a)
-                stack.append(a)
-            elif op.operand == Intrinsic.SWAP:
-                assert False, "not implemented"
-            elif op.operand == Intrinsic.DROP:
-                if len(stack) < 1:
-                    print("%s:%d:%d: ERROR: not enough arguments for the DROP intrinsic" % op.loc, file=sys.stderr)
-                    exit(1)
-                stack.pop()
-            elif op.operand == Intrinsic.OVER:
-                if len(stack) < 2:
-                    print("%s:%d:%d: ERROR: not enough arguments for the OVER intrinsic" % op.loc, file=sys.stderr)
-                    exit(1)
-                a = stack.pop()
-                b = stack.pop()
-                stack.append(b)
-                stack.append(a)
-                stack.append(b)
-            elif op.operand == Intrinsic.MEM:
-                assert False, "not implemented"
-            elif op.operand == Intrinsic.LOAD:
-                assert False, "not implemented"
-            elif op.operand == Intrinsic.STORE:
-                assert False, "not implemented"
-            elif op.operand == Intrinsic.LOAD64:
-                assert False, "not implemented"
-            elif op.operand == Intrinsic.STORE64:
-                assert False, "not implemented"
-            elif op.operand == Intrinsic.ARGC:
-                assert False, "not implemented"
-            elif op.operand == Intrinsic.ARGV:
-                assert False, "not implemented"
-            # TODO: figure out how to type check syscall arguments and return types
-            elif op.operand == Intrinsic.SYSCALL0:
-                if len(stack) < 1:
-                    print("%s:%d:%d: ERROR: not enough arguments for SYSCALL0 intrinsic" % op.loc, file=sys.stderr)
-                    exit(1)
-                for i in range(1):
-                    stack.pop()
-                stack.append((DataType.INT, op.loc))
-            elif op.operand == Intrinsic.SYSCALL1:
-                if len(stack) < 2:
-                    print("%s:%d:%d: ERROR: not enough arguments for SYSCALL1 intrinsic" % op.loc, file=sys.stderr)
-                    exit(1)
-                for i in range(2):
-                    stack.pop()
-                stack.append((DataType.INT, op.loc))
-            elif op.operand == Intrinsic.SYSCALL2:
-                if len(stack) < 3:
-                    print("%s:%d:%d: ERROR: not enough arguments for SYSCALL2 intrinsic" % op.loc, file=sys.stderr)
-                    exit(1)
-                for i in range(3):
-                    stack.pop()
-                stack.append((DataType.INT, op.loc))
-            elif op.operand == Intrinsic.SYSCALL3:
-                if len(stack) < 4:
-                    print("%s:%d:%d: ERROR: not enough arguments for SYSCALL3 intrinsic" % op.loc, file=sys.stderr)
-                    exit(1)
-                for i in range(4):
-                    stack.pop()
-                stack.append((DataType.INT, op.loc))
-            elif op.operand == Intrinsic.SYSCALL4:
-                assert False, "not implemented"
-            elif op.operand == Intrinsic.SYSCALL5:
-                assert False, "not implemented"
-            elif op.operand == Intrinsic.SYSCALL6:
-                assert False, "not implemented"
-            else:
-                assert False, "unreachable"
+            taketh, giveth = INTRINSIC_ARITY[op.operand];
+            if taketh > depth:
+                # TODO: use human readable representation of intrinsics in error reporting
+                print("%s:%d:%d: ERROR: not enough arguments for the intrinsic" % op.loc,file=sys.stderr)
+                exit(1)
+            depth = depth - taketh + giveth;
+            # assert len(Intrinsic) == 33, "Exhaustive intrinsic handling in type_check_program()"
+            # if op.operand == Intrinsic.PLUS:
+            #     assert len(DataType) == 3, "Exhaustive type handling in PLUS intrinsic"
+            #     a_type, a_loc = stack.pop()
+            #     b_type, b_loc = stack.pop()
+            #     if a_type == DataType.INT and b_type == DataType.INT:
+            #         stack.append((DataType.INT, op.loc))
+            #     elif a_type == DataType.INT and b_type == DataType.PTR:
+            #         stack.append((DataType.PTR, op.loc))
+            #     elif a_type == DataType.PTR and b_type == DataType.INT:
+            #         stack.append((DataType.PTR, op.loc))
+            #     else:
+            #         print("%s:%d:%d: ERROR: invalid argument types for PLUS intrinsic %s %s" % (op.loc + (a_type, b_type)), file=sys.stderr)
+            #         exit(1)
+            # elif op.operand == Intrinsic.MINUS:
+            #     assert False, "not implemented"
+            # elif op.operand == Intrinsic.MUL:
+            #     assert False, "not implemented"
+            # elif op.operand == Intrinsic.DIVMOD:
+            #     assert False, "not implemented"
+            # elif op.operand == Intrinsic.EQ:
+            #     # b a
+            #     a_type, a_loc = stack.pop()
+            #     b_type, b_loc = stack.pop()
+            #     if a_type == b_type and (a_type == DataType.INT or a_type == DataType.PTR):
+            #         stack.append((DataType.BOOL, op.loc))
+            #     else:
+            #         print("%s:%d:%d: ERROR: invalid argument type for EQ intrinsic" % op.loc, file=sys.stderr)
+            #         exit(1)
+            # elif op.operand == Intrinsic.GT:
+            #     assert False, "not implemented"
+            # elif op.operand == Intrinsic.LT:
+            #     assert False, "not implemented"
+            # elif op.operand == Intrinsic.GE:
+            #     assert False, "not implemented"
+            # elif op.operand == Intrinsic.LE:
+            #     assert False, "not implemented"
+            # elif op.operand == Intrinsic.NE:
+            #     assert False, "not implemented"
+            # elif op.operand == Intrinsic.SHR:
+            #     assert False, "not implemented"
+            # elif op.operand == Intrinsic.SHL:
+            #     assert False, "not implemented"
+            # elif op.operand == Intrinsic.BOR:
+            #     assert False, "not implemented"
+            # elif op.operand == Intrinsic.BAND:
+            #     assert False, "not implemented"
+            # elif op.operand == Intrinsic.PRINT:
+            #     if len(stack) < 1:
+            #         print("%s:%d:%d: ERROR: not enough arguments for the PRINT intrinsic" % op.loc, file=sys.stderr)
+            #         exit(1)
+            #     stack.pop()
+            # elif op.operand == Intrinsic.DUP:
+            #     if len(stack) < 1:
+            #         print("%s:%d:%d: ERROR: not enough arguments for the DUP intrinsic" % op.loc, file=sys.stderr)
+            #         exit(1)
+            #     a = stack.pop()
+            #     stack.append(a)
+            #     stack.append(a)
+            # elif op.operand == Intrinsic.SWAP:
+            #     assert False, "not implemented"
+            # elif op.operand == Intrinsic.DROP:
+            #     if len(stack) < 1:
+            #         print("%s:%d:%d: ERROR: not enough arguments for the DROP intrinsic" % op.loc, file=sys.stderr)
+            #         exit(1)
+            #     stack.pop()
+            # elif op.operand == Intrinsic.OVER:
+            #     if len(stack) < 2:
+            #         print("%s:%d:%d: ERROR: not enough arguments for the OVER intrinsic" % op.loc, file=sys.stderr)
+            #         exit(1)
+            #     a = stack.pop()
+            #     b = stack.pop()
+            #     stack.append(b)
+            #     stack.append(a)
+            #     stack.append(b)
+            # elif op.operand == Intrinsic.MEM:
+            #     assert False, "not implemented"
+            # elif op.operand == Intrinsic.LOAD:
+            #     assert False, "not implemented"
+            # elif op.operand == Intrinsic.STORE:
+            #     assert False, "not implemented"
+            # elif op.operand == Intrinsic.LOAD64:
+            #     assert False, "not implemented"
+            # elif op.operand == Intrinsic.STORE64:
+            #     assert False, "not implemented"
+            # elif op.operand == Intrinsic.ARGC:
+            #     assert False, "not implemented"
+            # elif op.operand == Intrinsic.ARGV:
+            #     assert False, "not implemented"
+            # # TODO: figure out how to type check syscall arguments and return types
+            # elif op.operand == Intrinsic.SYSCALL0:
+            #     if len(stack) < 1:
+            #         print("%s:%d:%d: ERROR: not enough arguments for SYSCALL0 intrinsic" % op.loc, file=sys.stderr)
+            #         exit(1)
+            #     for i in range(1):
+            #         stack.pop()
+            #     stack.append((DataType.INT, op.loc))
+            # elif op.operand == Intrinsic.SYSCALL1:
+            #     if len(stack) < 2:
+            #         print("%s:%d:%d: ERROR: not enough arguments for SYSCALL1 intrinsic" % op.loc, file=sys.stderr)
+            #         exit(1)
+            #     for i in range(2):
+            #         stack.pop()
+            #     stack.append((DataType.INT, op.loc))
+            # elif op.operand == Intrinsic.SYSCALL2:
+            #     if len(stack) < 3:
+            #         print("%s:%d:%d: ERROR: not enough arguments for SYSCALL2 intrinsic" % op.loc, file=sys.stderr)
+            #         exit(1)
+            #     for i in range(3):
+            #         stack.pop()
+            #     stack.append((DataType.INT, op.loc))
+            # elif op.operand == Intrinsic.SYSCALL3:
+            #     if len(stack) < 4:
+            #         print("%s:%d:%d: ERROR: not enough arguments for SYSCALL3 intrinsic" % op.loc, file=sys.stderr)
+            #         exit(1)
+            #     for i in range(4):
+            #         stack.pop()
+            #     stack.append((DataType.INT, op.loc))
+            # elif op.operand == Intrinsic.SYSCALL4:
+            #     assert False, "not implemented"
+            # elif op.operand == Intrinsic.SYSCALL5:
+            #     assert False, "not implemented"
+            # elif op.operand == Intrinsic.SYSCALL6:
+            #     assert False, "not implemented"
+            # else:
+            #     assert False, "unreachable"
         elif op.typ == OpType.IF:
             assert False, "not implemented"
         elif op.typ == OpType.END:
@@ -554,9 +610,9 @@ def type_check_program(program: Program):
                 exit(1)
         else:
             assert False, "unreachable"
-    if len(stack) != 0:
-        print("%s:%d:%d: ERROR: unhandled data on the stack" % stack.pop()[1], file=sys.stderr)
-        exit(1)
+    # if len(stack) != 0:
+    #     print("%s:%d:%d: ERROR: unhandled data on the stack" % stack.pop()[1], file=sys.stderr)
+    #     exit(1)
 
 def generate_nasm_linux_x86_64(program: Program, out_file_path: str):
     strs: List[bytes] = []
@@ -914,7 +970,7 @@ KEYWORD_NAMES = {
     'include': Keyword.INCLUDE,
 }
 
-assert len(Intrinsic) == 33, "Exhaustive INTRINSIC_NAMES definition"
+assert len(Intrinsic) == 35, "Exhaustive INTRINSIC_NAMES definition"
 INTRINSIC_NAMES = {
     '+': Intrinsic.PLUS,
     '-': Intrinsic.MINUS,
