@@ -1,0 +1,8 @@
+include "std.porth"
+print drop
+empty? if 
+  "Empty\n"
+else
+  "Not Empty\n"
+end
+stdout write drop

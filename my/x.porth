@@ -1,0 +1,7 @@
+macro purge
+  while empty? 1 != do
+    drop
+  end
+end
+
+1 2 3 purge

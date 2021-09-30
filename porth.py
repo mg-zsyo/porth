@@ -14,6 +14,8 @@ PORTH_EXT = '.porth'
 
 debug=False
 
+verbose=False
+
 Loc=Tuple[str, int, int]
 
 DEFAULT_EXPANSION_LIMIT=1000
@@ -47,6 +49,7 @@ class Intrinsic(Enum):
     SWAP=auto()
     DROP=auto()
     OVER=auto()
+    EMPTY=auto()
     MEM=auto()
     LOAD=auto()
     STORE=auto()
@@ -166,7 +169,7 @@ def simulate_little_endian_linux(program: Program, argv: List[str]):
             else:
                 ip += 1
         elif op.typ == OpType.INTRINSIC:
-            assert len(Intrinsic) == 31, "Exhaustive handling of intrinsic in simulate_little_endian_linux()"
+            assert len(Intrinsic) == 32, "Exhaustive handling of intrinsic in simulate_little_endian_linux()"
             if op.operand == Intrinsic.PLUS:
                 a = stack.pop()
                 b = stack.pop()
@@ -264,6 +267,12 @@ def simulate_little_endian_linux(program: Program, argv: List[str]):
                 stack.append(a)
                 stack.append(b)
                 ip += 1
+            elif op.operand == Intrinsic.EMPTY:
+                if len(stack) <= 1:
+                    stack.append(1);
+                else:
+                    stack.append(0);
+                ip += 1;
             elif op.operand == Intrinsic.MEM:
                 stack.append(STR_CAPACITY)
                 ip += 1
@@ -343,6 +352,9 @@ def simulate_little_endian_linux(program: Program, argv: List[str]):
                 assert False, "unreachable"
         else:
             assert False, "unreachable"
+        if verbose:
+            print("[VERB] Stack @ ip %d" % ip)
+            print("      ", stack)
     if debug:
         print("[INFO] Memory dump")
         print(mem[:20])
@@ -387,6 +399,12 @@ def generate_nasm_linux_x86_64(program: Program, out_file_path: str):
         out.write("    ret\n")
         out.write("global _start\n")
         out.write("_start:\n")
+        out.write("    mov rbp, rsp\n")
+        out.write("    pop rax\n")
+        out.write("    push rax\n")
+        out.write("    shl rax, 3\n")
+        out.write("    add rbp, rax\n")
+        out.write("    add rbp, 8\n")
         for ip in range(len(program)):
             op = program[ip]
             assert len(OpType) == 8, "Exhaustive ops handling in generate_nasm_linux_x86_64"
@@ -429,7 +447,7 @@ def generate_nasm_linux_x86_64(program: Program, out_file_path: str):
                 assert isinstance(op.operand, int), "This could be a bug in the compilation step"
                 out.write("    jz addr_%d\n" % op.operand)
             elif op.typ == OpType.INTRINSIC:
-                assert len(Intrinsic) == 31, "Exhaustive intrinsic handling in generate_nasm_linux_x86_64()"
+                assert len(Intrinsic) == 32, "Exhaustive intrinsic handling in generate_nasm_linux_x86_64()"
                 if op.operand == Intrinsic.PLUS:
                     out.write("    ;; -- plus --\n")
                     out.write("    pop rax\n")
@@ -559,6 +577,13 @@ def generate_nasm_linux_x86_64(program: Program, out_file_path: str):
                     out.write("    push rbx\n")
                     out.write("    push rax\n")
                     out.write("    push rbx\n")
+                elif op.operand == Intrinsic.EMPTY:
+                    out.write("    ;; -- empty? -- \n");
+                    out.write("    mov rcx, 0\n");
+                    out.write("    mov rdx, 1\n");
+                    out.write("    cmp rbp, rsp\n");
+                    out.write("    cmovle rcx, rdx\n");
+                    out.write("    push rcx\n");
                 elif op.operand == Intrinsic.MEM:
                     out.write("    ;; -- mem --\n")
                     out.write("    push mem\n")
@@ -666,7 +691,7 @@ KEYWORD_NAMES = {
     'include': Keyword.INCLUDE,
 }
 
-assert len(Intrinsic) == 31, "Exhaustive INTRINSIC_NAMES definition"
+assert len(Intrinsic) == 32, "Exhaustive INTRINSIC_NAMES definition"
 INTRINSIC_NAMES = {
     '+': Intrinsic.PLUS,
     '-': Intrinsic.MINUS,
@@ -687,6 +712,7 @@ INTRINSIC_NAMES = {
     'swap': Intrinsic.SWAP,
     'drop': Intrinsic.DROP,
     'over': Intrinsic.OVER,
+    'empty?': Intrinsic.EMPTY,
     'mem': Intrinsic.MEM,
     '.': Intrinsic.STORE,
     ',': Intrinsic.LOAD,
@@ -990,6 +1016,9 @@ if __name__ == '__main__' and '__file__' in globals():
         if argv[0] == '-debug':
             argv = argv[1:]
             debug = True
+        elif argv[0] == '-verbose':
+            argv = argv[1:]
+            verbose = True
         elif argv[0] == '-I':
             argv = argv[1:]
             if len(argv) == 0:
@@ -1011,6 +1040,8 @@ if __name__ == '__main__' and '__file__' in globals():
 
     if debug:
         print("[INFO] Debug mode is enabled")
+    if verbose:
+        print("[INFO] Verbose mode is enabled")
 
     if len(argv) < 1:
         usage(compiler_name)
