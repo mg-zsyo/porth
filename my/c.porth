@@ -1,0 +1,18 @@
+macro church_true  0 end
+macro church_false 1 end
+macro church_and 
+  over roll swap drop
+end
+macro church_or
+  dup  roll swap drop
+end
+
+church_true  church_true  church_and print
+church_true  church_false church_and print
+church_false church_true  church_and print
+church_false church_false church_and print
+
+church_true  church_true  church_or  print
+church_true  church_false church_or  print
+church_false church_true  church_or  print
+church_false church_false church_or  print

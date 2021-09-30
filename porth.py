@@ -50,6 +50,8 @@ class Intrinsic(Enum):
     DROP=auto()
     OVER=auto()
     EMPTY=auto()
+    ROLL=auto()
+    PICK=auto()
     MEM=auto()
     LOAD=auto()
     STORE=auto()
@@ -169,7 +171,7 @@ def simulate_little_endian_linux(program: Program, argv: List[str]):
             else:
                 ip += 1
         elif op.typ == OpType.INTRINSIC:
-            assert len(Intrinsic) == 32, "Exhaustive handling of intrinsic in simulate_little_endian_linux()"
+            assert len(Intrinsic) == 34, "Exhaustive handling of intrinsic in simulate_little_endian_linux()"
             if op.operand == Intrinsic.PLUS:
                 a = stack.pop()
                 b = stack.pop()
@@ -273,6 +275,16 @@ def simulate_little_endian_linux(program: Program, argv: List[str]):
                 else:
                     stack.append(0);
                 ip += 1;
+            elif op.operand == Intrinsic.ROLL:
+                a = stack.pop();
+                b = stack.pop(len(stack) - 1 - a);
+                stack.append(b);
+                ip += 1;
+            elif op.operand == Intrinsic.PICK:
+                a = stack.pop();
+                b = stack[len(stack) - 1 - a];
+                stack.append(b);
+                ip += 1;
             elif op.operand == Intrinsic.MEM:
                 stack.append(STR_CAPACITY)
                 ip += 1
@@ -353,7 +365,7 @@ def simulate_little_endian_linux(program: Program, argv: List[str]):
         else:
             assert False, "unreachable"
         if verbose:
-            print("[VERB] Stack @ ip %d" % ip)
+            print("[VERB] Stack @ Ip %d" % ip)
             print("      ", stack)
     if debug:
         print("[INFO] Memory dump")
@@ -447,7 +459,7 @@ def generate_nasm_linux_x86_64(program: Program, out_file_path: str):
                 assert isinstance(op.operand, int), "This could be a bug in the compilation step"
                 out.write("    jz addr_%d\n" % op.operand)
             elif op.typ == OpType.INTRINSIC:
-                assert len(Intrinsic) == 32, "Exhaustive intrinsic handling in generate_nasm_linux_x86_64()"
+                assert len(Intrinsic) == 34, "Exhaustive intrinsic handling in generate_nasm_linux_x86_64()"
                 if op.operand == Intrinsic.PLUS:
                     out.write("    ;; -- plus --\n")
                     out.write("    pop rax\n")
@@ -584,6 +596,25 @@ def generate_nasm_linux_x86_64(program: Program, out_file_path: str):
                     out.write("    cmp rbp, rsp\n");
                     out.write("    cmovle rcx, rdx\n");
                     out.write("    push rcx\n");
+                elif op.operand == Intrinsic.ROLL:
+                    out.write("    ;; -- roll -- \n");
+                    out.write("    pop rax\n");
+                    out.write("    mov rbx, [rax*8+rsp]\n");
+                    out.write("    test rax, rax\n");
+                    out.write("    jz .roll_end_%d\n" % ip);
+                    out.write(".roll_begin_%d:\n" % ip);
+                    out.write("    sub rax, 1\n");
+                    out.write("    mov rcx, [rax*8+rsp]\n");
+                    out.write("    mov [rax*8+rsp+8], rcx\n");
+                    out.write("    test rax, rax\n");
+                    out.write("    jnz .roll_begin_%d\n" % ip);
+                    out.write(".roll_end_%d:\n" % ip);
+                    out.write("    mov [rsp], rbx\n");
+                elif op.operand == Intrinsic.PICK:
+                    out.write("    ;; -- pick -- \n");
+                    out.write("    pop rax\n");
+                    out.write("    mov rbx, [rax*8+rsp]\n");
+                    out.write("    push rbx\n");
                 elif op.operand == Intrinsic.MEM:
                     out.write("    ;; -- mem --\n")
                     out.write("    push mem\n")
@@ -691,7 +722,7 @@ KEYWORD_NAMES = {
     'include': Keyword.INCLUDE,
 }
 
-assert len(Intrinsic) == 32, "Exhaustive INTRINSIC_NAMES definition"
+assert len(Intrinsic) == 34, "Exhaustive INTRINSIC_NAMES definition"
 INTRINSIC_NAMES = {
     '+': Intrinsic.PLUS,
     '-': Intrinsic.MINUS,
@@ -713,6 +744,8 @@ INTRINSIC_NAMES = {
     'drop': Intrinsic.DROP,
     'over': Intrinsic.OVER,
     'empty?': Intrinsic.EMPTY,
+    'roll': Intrinsic.ROLL,
+    'pick': Intrinsic.PICK,
     'mem': Intrinsic.MEM,
     '.': Intrinsic.STORE,
     ',': Intrinsic.LOAD,
