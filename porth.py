@@ -442,8 +442,11 @@ class DataType(IntEnum):
     BOOL=auto()
     PTR=auto()
 
+# roll and pick are unsafe
 def type_check_program(program: Program):
     depth = 0;
+    endstack = [];
+    ifstack = [];
     stack: List[Tuple[DataType, Loc]] = []
     for ip in range(len(program)):
         op = program[ip]
@@ -592,15 +595,24 @@ def type_check_program(program: Program):
             #     assert False, "not implemented"
             # else:
             #     assert False, "unreachable"
-        # elif op.typ == OpType.IF:
-        #     assert False, "not implemented"
-        # elif op.typ == OpType.END:
-        #     assert False, "not implemented"
-        # elif op.typ == OpType.ELSE:
-        #     assert False, "not implemented"
-        # elif op.typ == OpType.WHILE:
-        #     pass
-        # elif op.typ == OpType.DO:
+        elif op.typ == OpType.IF:
+            endstack.append(1);
+            ifstack.append(depth);
+        elif op.typ == OpType.ELSE:
+            olddepth = depth;
+            depth = ifstack.pop();
+            ifstack.append(olddepth);
+        elif op.typ == OpType.END:
+            endif = endstack.pop();
+            if endif == 1:
+                ifdepth = ifstack.pop();
+                if ifdepth != depth:
+                    print("%s:%d:%d: ERROR: if branches leave different amounts of items on stack" % op.loc,file=sys.stderr)
+                    exit(1)
+        elif op.typ == OpType.WHILE:
+            pass
+        elif op.typ == OpType.DO:
+            endstack.append(0);
         #     if len(stack) < 1:
         #         print("%s:%d:%d: ERROR: not enough arguments for DO operation" % op.loc, file=sys.stderr)
         #         exit(1)
@@ -655,11 +667,6 @@ def generate_nasm_linux_x86_64(program: Program, out_file_path: str):
         out.write("global _start\n")
         out.write("_start:\n")
         out.write("    mov rbp, rsp\n")
-        out.write("    pop rax\n")
-        out.write("    push rax\n")
-        out.write("    shl rax, 3\n")
-        out.write("    add rbp, rax\n")
-        out.write("    add rbp, 8\n")
         out.write("    mov [args_ptr], rsp\n")
         for ip in range(len(program)):
             op = program[ip]
@@ -703,7 +710,7 @@ def generate_nasm_linux_x86_64(program: Program, out_file_path: str):
                 assert isinstance(op.operand, int), "This could be a bug in the compilation step"
                 out.write("    jz addr_%d\n" % op.operand)
             elif op.typ == OpType.INTRINSIC:
-                assert len(Intrinsic) == 33, "Exhaustive intrinsic handling in generate_nasm_linux_x86_64()"
+                assert len(Intrinsic) == 35, "Exhaustive intrinsic handling in generate_nasm_linux_x86_64()"
                 if op.operand == Intrinsic.PLUS:
                     out.write("    ;; -- plus --\n")
                     out.write("    pop rax\n")

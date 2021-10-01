@@ -1,1 +1,8 @@
-0 dup if 13 end + print
+0 if 
+  13 
+  dup if 12 drop end
+else 
+  0 if 12 else 134 end  
+  12 +
+end 
+1 + print
