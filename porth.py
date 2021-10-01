@@ -416,13 +416,9 @@ INTRINSIC_ARITY = {
     Intrinsic.LOAD64:  (1, 1),
     Intrinsic.ARGC:    (0, 1),
     Intrinsic.ARGV:    (0, 1),
-    Intrinsic.SYSCALL0:(0, 0),
+    Intrinsic.SYSCALL0:(0, 1),
     Intrinsic.SYSCALL1:(1, 0),
-    Intrinsic.SYSCALL2:(2, 0),
-    Intrinsic.SYSCALL3:(3, 0),
-    Intrinsic.SYSCALL4:(4, 0),
-    Intrinsic.SYSCALL5:(5, 0),
-    Intrinsic.SYSCALL6:(6, 0),
+    Intrinsic.SYSCALL3:(3, 1),
 }
 
 assert len(OpType) == 8, "Exhaustive OP_ARITY definition"
@@ -845,14 +841,14 @@ def generate_nasm_linux_x86_64(program: Program, out_file_path: str):
                     out.write("    pop rax\n");
                     out.write("    mov rbx, [rax*8+rsp]\n");
                     out.write("    test rax, rax\n");
-                    out.write("    jz .roll_end_%d\n" % ip);
-                    out.write(".roll_begin_%d:\n" % ip);
+                    out.write("    jz .roll_%d_end\n" % ip);
+                    out.write(".roll_%d_begin:\n" % ip);
                     out.write("    sub rax, 1\n");
                     out.write("    mov rcx, [rax*8+rsp]\n");
                     out.write("    mov [rax*8+rsp+8], rcx\n");
                     out.write("    test rax, rax\n");
-                    out.write("    jnz .roll_begin_%d\n" % ip);
-                    out.write(".roll_end_%d:\n" % ip);
+                    out.write("    jnz .roll_%d_begin\n" % ip);
+                    out.write(".roll_%d_end:\n" % ip);
                     out.write("    mov [rsp], rbx\n");
                 elif op.operand == Intrinsic.PICK:
                     out.write("    ;; -- pick -- \n");
@@ -1282,10 +1278,10 @@ def usage(compiler_name: str):
     print("Usage: %s [OPTIONS] <SUBCOMMAND> [ARGS]" % compiler_name)
     print("  OPTIONS:")
     print("    -debug                Enable debug mode.")
+    print("    -verbose              Enable verbose mode")
     print("    -I <path>             Add the path to the include search list")
     print("    -E <expansion-limit>  Macro and include expansion limit. (Default %d)" % DEFAULT_EXPANSION_LIMIT)
     print("    -check                Type check the program")
-    print("    -verbose              Verbose mode")
     print("  SUBCOMMAND:")
     print("    sim <file>            Simulate the program")
     print("    com [OPTIONS] <file>  Compile the program")
