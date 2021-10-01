@@ -1,0 +1,19 @@
+macro -rot //( a b c -- c a b ) 
+  rot rot
+end
+
+macro nip //( a b -- b ) 
+  swap drop
+end
+
+macro tuck //( a b -- b a b )
+  swap over
+end
+
+macro 2swap //( a b c d -- c d a b )
+  3 roll 3 roll
+end
+
+macro 2over //( a b c d -- a b c d a b )
+  3 pick 3 pick
+end

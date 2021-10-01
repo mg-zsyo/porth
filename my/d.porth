@@ -1,0 +1,18 @@
+macro isNotEmpty
+  depth 0 !=
+end
+
+macro purge
+  while isNotEmpty do
+    drop
+  end
+end
+
+0 
+while dup 100 < do
+    dup 1 +
+end
+drop
+
+depth print 
+purge

@@ -1,0 +1,4 @@
+include "frt.porth"
+
+1 2 3 4 2swap
+1 2 3 4 2over print
